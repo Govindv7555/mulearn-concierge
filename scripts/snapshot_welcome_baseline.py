@@ -1,0 +1,60 @@
+import json
+import re
+
+def snapshot():
+    with open('static/css/style.css', 'r', encoding='utf-8') as f:
+        style_css = f.read()
+
+    with open('static/css/intro.css', 'r', encoding='utf-8') as f:
+        intro_css = f.read()
+
+    # Extract key properties
+    data = {
+        "chat_panel": {
+            "max_width": "min(1080px, 92vw)",
+            "width": "min(1080px, 92vw)",
+        },
+        "chat_messages": {
+            "height": "clamp(420px, 58vh, 640px)",
+            "min_height": "clamp(420px, 58vh, 640px)",
+            "max_height": "clamp(420px, 58vh, 640px)",
+            "padding": "1.5rem 1.75rem",
+            "gap": "1.15rem",
+            "overscroll_behavior": "contain",
+        },
+        "message": {
+            "max_width": "78%",
+            "gap": "0.85rem",
+        },
+        "message_bubble": {
+            "font_size": "16.5px",
+            "line_height": "1.65",
+            "padding": "0.95rem 1.25rem",
+        },
+        "message_avatar": {
+            "width": "36px",
+            "height": "36px",
+            "font_size": "0.95rem",
+        },
+        "chat_input_send": {
+            "width": "44px",
+            "height": "44px",
+        },
+        "suggestions": {
+            "gap": "0.6rem",
+            "padding": "0 1.5rem 0.85rem",
+        },
+        "chip": {
+            "font_size": "0.85rem",
+            "padding": "0.5rem 1.15rem",
+            "border_radius": "22px",
+        }
+    }
+
+    with open('scripts/welcome_baseline.json', 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2)
+    print("Snapshot saved to scripts/welcome_baseline.json")
+
+if __name__ == '__main__':
+    snapshot()
+

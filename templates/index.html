@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>µLearn Concierge — CHN</title>
+    <meta name="description" content="Your concierge to the µLearn universe. Ask about Interest Groups, Karma points, events, and more.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/intro.css') }}">
+</head>
+<body>
+    <!-- Pinned 3D Canvas Viewport -->
+    <div id="introContainer" class="intro-viewport" aria-hidden="true">
+        <canvas id="introCanvas" class="intro-canvas"></canvas>
+        <div id="heroOverlay" class="hero-overlay">
+            <div class="scroll-hint">
+                <span class="scroll-hint__text">Scroll to enter</span>
+                <div class="mouse-icon">
+                    <div class="mouse-wheel"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scroll Spacer (600vh drives ScrollTrigger scrub) -->
+    <div id="introSpacer" class="intro-spacer"></div>
+
+    <!-- Fullscreen White Flash Overlay -->
+    <div id="flashOverlay" class="flash-overlay" aria-hidden="true"></div>
+
+    <!-- Replay Gesture Progress Bar (Accidental Replay Dead Zone) -->
+    <div id="replayProgressBar" class="replay-progress-bar" aria-hidden="true"></div>
+
+    <!-- Top-Right Skip Intro Button -->
+    <button id="btnSkipIntro" class="btn-skip-intro" aria-label="Skip 3D intro to chat">
+        <span>Skip intro</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="13 17 18 12 13 7"></polyline>
+            <polyline points="6 17 11 12 6 7"></polyline>
+        </svg>
+    </button>
+
+    <!-- Main Live Chatbot Section -->
+    <section id="chat" class="chat-section">
+        <!-- Back to 3D scene button -->
+        <div class="back-to-scene-wrap">
+            <button id="btnBackToScene" class="btn-back-to-scene" aria-label="Return to 3D scene">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+                <span>Back to 3D scene</span>
+            </button>
+        </div>
+
+        <!-- Ambient background -->
+        <div class="ambient-bg" aria-hidden="true">
+            <div class="orb orb--gold"></div>
+            <div class="orb orb--blue"></div>
+            <div class="orb orb--gold-sm"></div>
+            <canvas id="particleCanvas"></canvas>
+        </div>
+
+        <!-- Hero header -->
+        <header class="hero">
+            <h1 class="wordmark">µLearn <span class="accent">CHN</span></h1>
+            <p class="tagline">Your concierge to the µLearn universe</p>
+        </header>
+
+        <!-- Chat panel -->
+        <main class="chat-panel">
+            <!-- Chat header bar -->
+            <div class="chat-header">
+                <div class="chat-header__title">
+                    <span class="chat-header__dot"></span>
+                    µLearn Concierge
+                </div>
+                <button class="btn-new-chat" id="btnNewChat" title="New conversation" aria-label="Start new conversation">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Messages area -->
+            <div class="chat-messages" id="chatMessages" role="log" aria-live="polite" aria-label="Conversation" data-lenis-prevent>
+                <!-- Welcome message -->
+                <div class="message message--assistant message--entrance">
+                    <div class="message__avatar" aria-hidden="true">µ</div>
+                    <div class="message__content">
+                        <div class="message__bubble">
+                            Welcome! I'm your µLearn Concierge. Ask me anything about µLearn, Interest Groups, Karma points, or the latest news.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Suggested questions -->
+            <div class="suggestions" id="suggestions">
+                <button class="chip" data-question="What is µLearn?">What is µLearn?</button>
+                <button class="chip" data-question="How do I join an Interest Group?">How do I join an Interest Group?</button>
+                <button class="chip" data-question="What are Karma points?">What are Karma points?</button>
+                <button class="chip" data-question="Latest news">Latest news</button>
+                <button class="chip" data-question="How do I get my µID?">How do I get my µID?</button>
+            </div>
+
+            <!-- Input area -->
+            <form class="chat-input" id="chatForm" autocomplete="off">
+                <div class="chat-input__wrapper">
+                    <textarea
+                        id="messageInput"
+                        class="chat-input__textarea"
+                        placeholder="Ask me anything about µLearn…"
+                        rows="1"
+                        maxlength="1000"
+                        aria-label="Type your message"
+                    ></textarea>
+                    <button type="submit" class="chat-input__send" id="btnSend" aria-label="Send message" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 2L11 13"/>
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="chat-input__hint">
+                    <span>Enter to send · Shift+Enter for new line</span>
+                    <span id="charCount" class="chat-input__count" aria-live="polite"></span>
+                </div>
+            </form>
+        </main>
+
+        <!-- Footer -->
+        <footer class="site-footer">
+            <p class="site-footer__credit">
+                Built for <strong>µLearn CHN</strong> · College of Engineering Chengannur
+            </p>
+            <nav class="site-footer__links" aria-label="External links">
+                <a href="https://mulearn.org" target="_blank" rel="noopener noreferrer">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    mulearn.org
+                </a>
+                <a href="https://discord.gg/5xdYHfjFt" target="_blank" rel="noopener noreferrer">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+                    Discord
+                </a>
+            </nav>
+            <p class="site-footer__sync">
+                News last synced: <span id="syncTimestamp">—</span>
+            </p>
+        </footer>
+    </section>
+
+    <!-- Vendor Scripts (No CDN dependencies) -->
+    <script src="{{ url_for('static', filename='vendor/lenis.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/gsap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/ScrollTrigger.min.js') }}"></script>
+
+    <!-- 3D Intro & Scroll Timeline (ES Modules) -->
+    <script type="module" src="{{ url_for('static', filename='js/scene.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/timeline.js') }}"></script>
+
+    <!-- Chat Logic -->
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>

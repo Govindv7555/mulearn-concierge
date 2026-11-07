@@ -1,0 +1,340 @@
+/* ============================================================
+   µLearn Concierge — 3D Intro & Seamless State Stylesheet
+   Architecture: Two Clean States — SCENE and CHAT
+   ============================================================ */
+
+/* ----- Required Lenis Smooth Scroll CSS Rules ----- */
+html.lenis,
+html.lenis.lenis-smooth {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+/* ----- Pinned 3D Canvas Viewport (SCENE State) ----- */
+.intro-viewport {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2;
+  pointer-events: none !important;
+  overflow: hidden;
+  background-color: var(--midnight);
+  will-change: transform;
+}
+
+.intro-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none !important;
+}
+
+/* ----- Hero Overlay (Scroll Hint) ----- */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding-bottom: 3.5rem;
+  z-index: 5;
+}
+
+.scroll-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--ivory-dim);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  user-select: none;
+  pointer-events: none !important;
+}
+
+.mouse-icon {
+  width: 22px;
+  height: 36px;
+  border: 2px solid rgba(201, 169, 110, 0.45);
+  border-radius: 12px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  box-shadow: 0 0 12px rgba(201, 169, 110, 0.15);
+  pointer-events: none !important;
+}
+
+.mouse-wheel {
+  width: 4px;
+  height: 7px;
+  background: var(--gold);
+  border-radius: 2px;
+  position: absolute;
+  top: 6px;
+  animation: mouseScroll 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  pointer-events: none !important;
+}
+
+@keyframes mouseScroll {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  60% {
+    opacity: 0.2;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* ----- Scroll Spacer Container (SCENE State) ----- */
+.intro-spacer {
+  height: 628vh;
+  position: relative;
+  width: 100%;
+  pointer-events: none !important;
+}
+
+/* ----- Fullscreen White Flash Overlay ----- */
+.flash-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #ffffff;
+  opacity: 0;
+  display: none;
+  pointer-events: none !important;
+  z-index: 99999;
+  will-change: opacity;
+}
+
+/* ----- Replay Gesture Progress Bar (Accidental Replay Dead Zone) ----- */
+.replay-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0%;
+  height: 2px;
+  background-color: var(--gold, #C9A96E);
+  box-shadow: 0 0 8px rgba(201, 169, 110, 0.6);
+  z-index: 999999;
+  pointer-events: none !important;
+  transition: width 0.08s ease-out, opacity 0.2s ease;
+  opacity: 0;
+}
+
+.replay-progress-bar.active {
+  opacity: 1;
+}
+
+/* ----- Skip Intro Button (Top Right) ----- */
+.btn-skip-intro {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.75rem;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 999px;
+  background: rgba(7, 11, 22, 0.8);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(201, 169, 110, 0.3);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  pointer-events: auto !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+}
+
+.btn-skip-intro:hover {
+  background: rgba(201, 169, 110, 0.18);
+  border-color: var(--gold);
+  color: var(--gold);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(201, 169, 110, 0.25);
+}
+
+.btn-skip-intro:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.btn-skip-intro svg {
+  transition: transform 0.25s ease;
+}
+
+.btn-skip-intro:hover svg {
+  transform: translateX(2px);
+}
+
+/* ----- CHAT State Layer (Full Viewport, Clean, Above Everything) ----- */
+.chat-section {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
+  background-color: var(--midnight);
+  display: flex;
+  flex-direction: column;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Active CHAT state: Fixed full-viewport layer */
+.chat-section.chat-active {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  z-index: 1000 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background-color: var(--midnight) !important;
+}
+
+/* Lock html and body background scroll when in CHAT state */
+html.chat-active,
+body.chat-active {
+  overflow: hidden !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+}
+
+/* Back to 3D Scene Button */
+.back-to-scene-wrap {
+  max-width: min(1080px, 92vw);
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(0.2rem, 0.6vh, 0.45rem) 1.25rem 0;
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1010;
+}
+
+.btn-back-to-scene {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(13, 27, 42, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  color: var(--ivory-dim);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  pointer-events: auto !important;
+  transition: all 0.2s ease;
+}
+
+.btn-back-to-scene:hover {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.btn-back-to-scene:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Chat messages list scroll containment */
+.chat-messages {
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ----- Mobile Responsive Adjustments ----- */
+@media (max-width: 768px) {
+  .btn-skip-intro {
+    top: 1rem;
+    right: 1rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.75rem;
+  }
+
+  .back-to-scene-wrap {
+    padding: 0.75rem 1rem 0;
+  }
+}
+
+/* ----- Accessibility / Reduced Motion Fallback ----- */
+@media (prefers-reduced-motion: reduce) {
+  .intro-viewport,
+  .intro-spacer,
+  .btn-skip-intro,
+  .flash-overlay,
+  .back-to-scene-wrap {
+    display: none !important;
+  }
+
+  .chat-section {
+    position: static !important;
+    min-height: 100vh !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
+
+/* WebGL unavailable fallback */
+.no-webgl .intro-viewport,
+.no-webgl .intro-spacer,
+.no-webgl .btn-skip-intro,
+.no-webgl .flash-overlay,
+.no-webgl .back-to-scene-wrap {
+  display: none !important;
+}
+
+.no-webgl .chat-section {
+  position: static !important;
+  min-height: 100vh !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}

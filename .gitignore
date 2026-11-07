@@ -1,0 +1,28 @@
+.env
+__pycache__/
+*.pyc
+venv/
+.venv/
+.DS_Store
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+knowledge/*.bak
+node_modules/
+edge_temp_profile/
+
+# Python extras
+*.log
+.mypy_cache/
+.ruff_cache/
+*.sqlite3
+.idea/
+.vscode/
+
+# Local-only folders
+scratch/
+screenshots/
+static/*snapshot*.json
+static/metrics_*.json
+static/img/verification/
