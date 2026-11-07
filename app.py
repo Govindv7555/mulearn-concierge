@@ -6,6 +6,7 @@ Main entry point for the chatbot web app.
 import os
 import time
 import html
+import threading
 from collections import defaultdict
 from datetime import datetime
 
@@ -88,7 +89,10 @@ _rate_store = defaultdict(list)  # IP -> [timestamp, ...]
 def _get_rate_limit():
     env_val = os.getenv("RATE_LIMIT")
     if env_val:
-        return int(env_val)
+        try:
+            return int(env_val)
+        except (ValueError, TypeError):
+            pass
     if app.config.get("TESTING") and not app.config.get("TEST_RATE_LIMIT_20"):
         return 10
     return DEFAULT_RATE_LIMIT
@@ -97,7 +101,10 @@ def _get_rate_limit():
 def _get_rate_window():
     env_val = os.getenv("RATE_WINDOW")
     if env_val:
-        return int(env_val)
+        try:
+            return int(env_val)
+        except (ValueError, TypeError):
+            pass
     if app.config.get("TESTING") and not app.config.get("TEST_RATE_LIMIT_20"):
         return 60
     return DEFAULT_RATE_WINDOW
@@ -285,12 +292,61 @@ def internal_error(e):
 
 
 # ---------------------------------------------------------------------------
+# Background Discord auto-sync thread
+# ---------------------------------------------------------------------------
+
+def _start_discord_sync_thread():
+    """Background thread to periodically refresh Discord announcements.
+    Skips quietly if DISCORD_BOT_TOKEN or DISCORD_CHANNEL_IDS is missing,
+    or during tests / when auto-sync is disabled.
+    """
+    if app.config.get("TESTING") or os.getenv("PYTEST_CURRENT_TEST"):
+        return
+
+    if os.getenv("DISCORD_AUTO_SYNC", "true").lower() in ("false", "0", "no"):
+        return
+
+    token = os.getenv("DISCORD_BOT_TOKEN")
+    channel_ids = (os.getenv("DISCORD_CHANNEL_IDS", "") or os.getenv("DISCORD_CHANNEL_ID", "")).strip()
+    if not token or not channel_ids:
+        # Skips quietly when env vars are missing
+        return
+
+    def _worker():
+        # Initial delay so web server startup and health check complete instantly
+        time.sleep(15)
+        while True:
+            try:
+                import asyncio
+                from scripts.discord_sync import sync
+                asyncio.run(sync(quiet_on_missing=True))
+            except Exception as e:
+                app.logger.warning(f"Discord auto-sync error: {e}")
+
+            try:
+                interval = int(os.getenv("DISCORD_SYNC_INTERVAL", "3600") or 3600)
+            except (ValueError, TypeError):
+                interval = 3600
+            time.sleep(interval)
+
+    thread = threading.Thread(target=_worker, name="discord_auto_sync", daemon=True)
+    thread.start()
+
+
+# Trigger background auto-sync if configured (skips quietly if env vars are missing)
+_start_discord_sync_thread()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "5000"))
-    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    try:
+        port = int(os.getenv("PORT", "5000") or 5000)
+    except (ValueError, TypeError):
+        port = 5000
+    debug = os.getenv("FLASK_DEBUG", "false").lower() in ("true", "1", "t")
     print(f"\n  µLearn Concierge running at http://localhost:{port}\n")
     print(f"  API mode: {'Gemini (' + os.getenv('GEMINI_MODEL', 'gemini-2.0-flash') + ')' if is_api_available() else 'Fallback (keyword/FAQ)'}")
     print(f"  Knowledge chunks loaded: {len(get_store().chunks)}\n")

@@ -185,19 +185,23 @@ def write_markdown(entries, manual_entries=None):
         f.write("\n".join(lines))
 
 
-async def sync():
+async def sync(quiet_on_missing=False):
     """Main sync function: connect to Discord, read messages, write markdown."""
     token = os.getenv("DISCORD_BOT_TOKEN")
-    channel_ids_str = os.getenv("DISCORD_CHANNEL_IDS", "")
+    channel_ids_str = os.getenv("DISCORD_CHANNEL_IDS", "") or os.getenv("DISCORD_CHANNEL_ID", "")
 
     # Validate config
     if not token:
+        if quiet_on_missing:
+            return False
         print("ERROR: DISCORD_BOT_TOKEN not set in .env")
         print("  1. Create a bot at https://discord.com/developers/applications")
         print("  2. Copy the token to your .env file")
         sys.exit(1)
 
     if not channel_ids_str.strip():
+        if quiet_on_missing:
+            return False
         print("ERROR: DISCORD_CHANNEL_IDS not set in .env")
         print("  Set it to a comma-separated list of channel IDs to read from.")
         sys.exit(1)
@@ -292,19 +296,26 @@ async def sync():
     # Start the client (blocks until on_ready completes and calls client.close)
     try:
         await client.start(token)
-    except discord.LoginFailure:
+    except discord.LoginFailure as e:
+        if quiet_on_missing:
+            return False
         print("ERROR: Invalid bot token. Check DISCORD_BOT_TOKEN in .env")
         print("  Get your token from https://discord.com/developers/applications")
         sys.exit(1)
-    except discord.PrivilegedIntentsRequired:
+    except discord.PrivilegedIntentsRequired as e:
+        if quiet_on_missing:
+            return False
         print("ERROR: Message Content intent is required but not enabled.")
         print("  1. Go to https://discord.com/developers/applications")
         print("  2. Select your bot → Bot → Privileged Gateway Intents")
         print("  3. Enable 'Message Content Intent'")
         sys.exit(1)
     except Exception as e:
+        if quiet_on_missing:
+            return False
         print(f"ERROR: Failed to connect to Discord: {e}")
         sys.exit(1)
+    return True
 
 
 def main():

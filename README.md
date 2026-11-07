@@ -412,23 +412,53 @@ Use these 10 curated questions to demonstrate the full capabilities of **µLearn
 
 ---
 
-## Deployment Guide
+## Deploy on Render
 
-### Option 1: Render (Web Service)
-1. Push your repository to GitHub.
-2. In the [Render Dashboard](https://dashboard.render.com/), create a new **Web Service**.
-3. Connect your repository.
-4. Set the following settings:
-   - **Environment**: Python 3
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app` (add `gunicorn` to `requirements.txt` if deploying on Linux)
-5. Add your Environment Variables in the Render settings:
-   - `GEMINI_API_KEY`
-   - `DISCORD_BOT_TOKEN`
-   - `DISCORD_CHANNEL_IDS`
-6. Deploy!
+µLearn Concierge is configured for one-click deployment as a Python Web Service on [Render](https://render.com/).
 
-### Option 2: Hugging Face Spaces
+### Deployment Steps
+
+1. **Push your code to GitHub**:
+   Ensure your repository is pushed to GitHub (or GitLab). Note that `.env` is ignored by git and will not be pushed.
+2. **Create a Web Service on Render**:
+   - Go to the [Render Dashboard](https://dashboard.render.com/) and click **New +** → **Web Service**.
+   - Connect your GitHub repository.
+3. **Configure Service Settings**:
+   - **Name**: `mulearn-concierge` (or your preferred name)
+   - **Language / Environment**: `Python` (Render detects `.python-version` and builds using Python 3.12)
+   - **Branch**: `main`
+   - **Region**: Select the region closest to your users (e.g., Singapore or Frankfurt)
+   - **Build Command**: `pip install -r requirements.txt`  
+     *(Playwright and dev dependencies are separated into `requirements-dev.txt`, keeping production slug builds fast and lightweight)*
+   - **Start Command**: Handled automatically via `Procfile`:
+     ```bash
+     web: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 60
+     ```
+     *(Uses 1 worker to share the in-memory question cache, provider cooldowns, and rate limits, with 4 threads for concurrent I/O)*
+4. **Configure Environment Variables**:
+   Under **Environment Variables** in the Render settings, add your configuration keys (enter your actual secret keys in Render's dashboard, never commit them):
+   - `LLM_PROVIDERS` — Provider order priority (e.g. `gemini,openai_compat` or `openai_compat,gemini`)
+   - `GEMINI_API_KEY` — Your Google AI Studio API key
+   - `GEMINI_MODEL` — *(Optional)* Gemini model name (defaults to `gemini-3.8-flash`)
+   - `OPENAI_COMPAT_BASE_URL` — *(Optional)* Base URL for OpenRouter/OpenAI-compatible endpoint (defaults to `https://openrouter.ai/api/v1`)
+   - `OPENAI_COMPAT_API_KEY` — Your OpenRouter or OpenAI-compatible API key
+   - `OPENAI_COMPAT_MODEL` — *(Optional)* One or more model slugs, comma-separated
+   - `SITE_URL` — *(Optional)* Site URL header for OpenRouter rankings
+   - `DISCORD_BOT_TOKEN` — *(Optional)* Discord bot token for background announcements sync
+   - `DISCORD_CHANNEL_IDS` — *(Optional)* Comma-separated Discord channel IDs to read announcements from
+   - `RATE_LIMIT` — *(Optional)* Max messages per IP per window (defaults to `20`)
+   - `RATE_WINDOW` — *(Optional)* Rate limit window in seconds (defaults to `600`)
+5. **Deploy**:
+   Click **Create Web Service**. Render will build and deploy your application.
+
+> [!NOTE]
+> **Free Instance Spin-Down**: On Render's Free tier, the web service automatically spins down after 15 minutes of inactivity. When a new visitor accesses the app, Render spins up the instance, which can take approximately 50–60 seconds (first load ~1 minute). Once awake, subsequent requests respond with normal sub-second latency. You can point an external uptime monitor (e.g. UptimeRobot or Cron-job.org) at `/api/health` to keep it active. The `/api/health` endpoint responds with HTTP 200 in milliseconds without making any external AI calls.
+
+---
+
+## Deployment Guide (Alternative Hosts)
+
+### Hugging Face Spaces
 1. Create a new Space on [Hugging Face](https://huggingface.co/spaces) with SDK set to **Docker** or **Gradio/Flask**.
 2. Push the repository files to the Space.
 3. In Space Settings, add `GEMINI_API_KEY` and other variables under **Repository Secrets**.

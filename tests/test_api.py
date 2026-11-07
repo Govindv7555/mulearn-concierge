@@ -171,3 +171,77 @@ def test_missing_api_key_mode_answers_greetings(client, monkeypatch):
     assert len(data_mulearn["sources"]) > 0
 
 
+def test_render_config_files():
+    """Verify requirements, Procfile, and .python-version are properly configured for Render."""
+    import os
+
+    # 1. requirements.txt: must include gunicorn and must NOT include playwright
+    with open("requirements.txt", "r", encoding="utf-8") as f:
+        req_lines = [l.strip().lower() for l in f if l.strip()]
+    assert any(l.startswith("gunicorn") for l in req_lines), "requirements.txt must include gunicorn"
+    assert not any(l.startswith("playwright") for l in req_lines), "playwright must not be in requirements.txt"
+
+    # 2. requirements-dev.txt: must include playwright
+    assert os.path.exists("requirements-dev.txt")
+    with open("requirements-dev.txt", "r", encoding="utf-8") as f:
+        dev_lines = [l.strip().lower() for l in f if l.strip()]
+    assert any(l.startswith("playwright") for l in dev_lines), "requirements-dev.txt must include playwright"
+
+    # 3. Procfile: must match required gunicorn command
+    assert os.path.exists("Procfile")
+    with open("Procfile", "r", encoding="utf-8") as f:
+        procfile_content = f.read().strip()
+    expected_procfile = "web: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 60"
+    assert procfile_content == expected_procfile, f"Expected '{expected_procfile}', got '{procfile_content}'"
+
+    # 4. .python-version: must specify 3.12
+    assert os.path.exists(".python-version")
+    with open(".python-version", "r", encoding="utf-8") as f:
+        py_ver = f.read().strip()
+    assert py_ver == "3.12", f"Expected '3.12', got '{py_ver}'"
+
+
+def test_app_exposes_app_object():
+    """app.py must expose the Flask 'app' object at module level."""
+    from flask import Flask
+    import app as app_module
+    assert hasattr(app_module, "app")
+    assert isinstance(app_module.app, Flask)
+
+
+def test_discord_auto_sync_skips_quietly_when_env_missing(monkeypatch):
+    """The Discord auto-sync thread must skip quietly when env vars are missing without errors."""
+    import app as app_module
+    monkeypatch.delenv("DISCORD_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("DISCORD_CHANNEL_IDS", raising=False)
+    monkeypatch.delenv("DISCORD_CHANNEL_ID", raising=False)
+
+    # Calling _start_discord_sync_thread should return without throwing or failing
+    app_module._start_discord_sync_thread()
+
+
+def test_missing_optional_env_vars_do_not_crash():
+    """Missing or malformed optional env vars (RATE_LIMIT, RATE_WINDOW) do not crash config helpers."""
+    import os
+    from app import _get_rate_limit, _get_rate_window
+
+    orig_limit = os.environ.get("RATE_LIMIT")
+    orig_window = os.environ.get("RATE_WINDOW")
+
+    try:
+        os.environ["RATE_LIMIT"] = "not-an-int"
+        os.environ["RATE_WINDOW"] = "invalid"
+        assert isinstance(_get_rate_limit(), int)
+        assert isinstance(_get_rate_window(), int)
+    finally:
+        if orig_limit is not None:
+            os.environ["RATE_LIMIT"] = orig_limit
+        else:
+            os.environ.pop("RATE_LIMIT", None)
+        if orig_window is not None:
+            os.environ["RATE_WINDOW"] = orig_window
+        else:
+            os.environ.pop("RATE_WINDOW", None)
+
+
+
