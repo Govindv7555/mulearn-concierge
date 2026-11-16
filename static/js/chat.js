@@ -97,6 +97,9 @@
     }
   }
 
+  // ----- Helper for event dispatching -----
+  function emit(name, detail){ window.dispatchEvent(new CustomEvent("concierge:"+name,{detail:detail||{}})); }
+
   // ----- Send message -----
   async function handleSubmit(e) {
     e.preventDefault();
@@ -115,6 +118,7 @@
 
     // Show typing indicator
     const typingEl = showTypingIndicator();
+    emit("send", { text });
 
     // 30-second client-side timeout
     const CLIENT_TIMEOUT_MS = 30000;
@@ -142,6 +146,7 @@
       typingEl.remove();
 
       if (res.status === 429) {
+        emit("error", { kind: "rate" });
         appendMessage(
           "Please wait a moment before sending another message.",
           "assistant"
@@ -151,6 +156,7 @@
       }
 
       if (!res.ok) {
+        emit("error", { kind: "server" });
         const err = await res.json().catch(() => ({}));
         appendMessage(
           err.error || "Something went wrong. Please try again.",
@@ -161,6 +167,11 @@
       }
 
       const data = await res.json();
+      emit("reply", {
+        reply: data.reply,
+        usedSources: data.used_sources,
+        offline: /AI mode is busy right now/i.test(data.reply),
+      });
 
       // Typewriter append for assistant response (sources shown only if used_sources is true)
       await typewriterAppend(
@@ -178,11 +189,13 @@
       clearTimeout(timeoutId);
       typingEl.remove();
       if (isTimedOut || err.name === "AbortError") {
+        emit("error", { kind: "timeout" });
         appendMessage(
           "Taking longer than usual, please try again.",
           "assistant"
         );
       } else {
+        emit("error", { kind: "network" });
         appendMessage(
           "Network error. Please check your connection and try again.",
           "assistant"
@@ -326,6 +339,7 @@
 
   // ----- New chat -----
   function handleNewChat() {
+    emit("newchat");
     conversationHistory = [];
     // Remove all messages except the welcome
     const messages = chatMessages.querySelectorAll(".message");

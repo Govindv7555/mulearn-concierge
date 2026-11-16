@@ -1,0 +1,466 @@
+/**
+ * µLearn Concierge — Mu Mascot Styles
+ */
+
+/* Override chat-panel overflow so Mu can sit on the top ledge */
+.chat-panel {
+  overflow: visible;
+}
+
+/* Buddy container: invisible during 3D intro, visible only in chat view */
+.buddy {
+  --bd-fit: 72px;
+  position: absolute;
+  left: 16px;
+  /* Top is minus 75% of his height (hips rest on the card edge) */
+  top: calc(var(--bd-fit, 72px) * (112 / 96) * -0.75);
+  width: var(--bd-fit, 72px);
+  height: calc(var(--bd-fit, 72px) * 112 / 96);
+  z-index: 6;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  display: none;
+}
+
+.chat-section.chat-active .buddy,
+.chat-active .buddy {
+  display: block;
+}
+
+/* Responsive adjustment for small screens */
+@media (max-width: 560px) {
+  .buddy {
+    --bd-fit: 56px;
+    left: 10px;
+  }
+}
+
+/* Figure & Hit Area */
+.buddy__figure {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.buddy__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  display: block;
+}
+
+/* Only the hit area catches pointer events so Mu never blocks card controls */
+.buddy__hit {
+  position: absolute;
+  left: 8%;
+  top: 8%;
+  width: 84%;
+  height: 84%;
+  cursor: pointer;
+  pointer-events: auto;
+  border-radius: 50%;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ----- Speech Bubble ----- */
+.buddy__bubble {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 10px;
+  background: rgba(11, 16, 28, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(201, 169, 110, 0.85);
+  border-radius: 9999px;
+  padding: 0.32rem 0.82rem;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.45),
+    0 0 10px rgba(201, 169, 110, 0.2);
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.85);
+  transform-origin: left center;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+  white-space: nowrap;
+}
+
+/* Triangular tail pointing left to Mu's head */
+.buddy__bubble::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: rgba(11, 16, 28, 0.92);
+  border-left: 1px solid rgba(201, 169, 110, 0.85);
+  border-bottom: 1px solid rgba(201, 169, 110, 0.85);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.buddy__text {
+  color: #f7f5f0;
+  font-family: var(--font-body, "Inter", sans-serif);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  display: inline-block;
+  line-height: 1.25;
+}
+
+@media (max-width: 560px) {
+  .buddy__bubble {
+    padding: 0.25rem 0.65rem;
+    top: 6px;
+  }
+  .buddy__text {
+    font-size: 0.72rem;
+  }
+}
+
+/* Speech bubble pop in */
+.buddy[data-speaking="true"] .buddy__bubble {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ----- SVG Joints & Transform Origins ----- */
+.b-head,
+.b-arm--l,
+.b-arm--r,
+.b-leg--l,
+.b-leg--r,
+.b-bulb,
+.b-mu {
+  transform-box: view-box;
+}
+
+.b-head {
+  transform-origin: 48px 63px;
+  animation: headSway 3.2s ease-in-out infinite;
+}
+
+.b-arm--l {
+  transform-origin: 33px 68px;
+  animation: armSwayL 3.2s ease-in-out infinite;
+}
+
+.b-arm--r {
+  transform-origin: 63px 68px;
+  animation: armSwayR 3.2s ease-in-out infinite;
+}
+
+.b-leg--l {
+  transform-origin: 38px 84px;
+  animation: legSwingL 2.2s ease-in-out infinite;
+}
+
+.b-leg--r {
+  transform-origin: 58px 84px;
+  animation: legSwingR 2.2s ease-in-out infinite;
+}
+
+.b-bulb {
+  transform-origin: 48px 11px;
+  animation: bulbPulse 2.2s ease-in-out infinite;
+}
+
+.b-eyes--normal {
+  transform-origin: 48px 41px;
+  transform-box: view-box;
+  animation: eyeBlink 4.2s ease-in-out infinite;
+}
+
+/* ----- Idle Keyframes ----- */
+@keyframes headSway {
+  0%, 100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes legSwingL {
+  0%, 100% {
+    transform: rotate(-20deg);
+  }
+  50% {
+    transform: rotate(20deg);
+  }
+}
+
+@keyframes legSwingR {
+  0%, 100% {
+    transform: rotate(20deg);
+  }
+  50% {
+    transform: rotate(-20deg);
+  }
+}
+
+@keyframes armSwayL {
+  0%, 100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes armSwayR {
+  0%, 100% {
+    transform: rotate(5deg);
+  }
+  50% {
+    transform: rotate(-6deg);
+  }
+}
+
+@keyframes bulbPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(201, 169, 110, 0.4));
+    opacity: 0.85;
+  }
+  50% {
+    filter: drop-shadow(0 0 7px rgba(201, 169, 110, 0.95));
+    opacity: 1;
+  }
+}
+
+@keyframes eyeBlink {
+  0%, 94%, 98%, 100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.1);
+  }
+}
+
+/* ----- Facial Expressions & Mood Elements ----- */
+/* Default hidden elements */
+.b-eyes--happy,
+.b-eyes--think,
+.b-eyes--sad,
+.b-brows--sad,
+.b-mouth--open,
+.b-mouth--flat,
+.b-mouth--sad,
+.b-cheeks,
+.b-sweat {
+  display: none;
+}
+
+/* Happy / Celebratory moods: greet, grounded, happy, thanks, laugh, giggle */
+.buddy[data-mood="greet"] .b-eyes--normal,
+.buddy[data-mood="grounded"] .b-eyes--normal,
+.buddy[data-mood="happy"] .b-eyes--normal,
+.buddy[data-mood="thanks"] .b-eyes--normal,
+.buddy[data-mood="laugh"] .b-eyes--normal,
+.buddy[data-mood="giggle"] .b-eyes--normal,
+.buddy[data-mood="greet"] .b-mouth--smile,
+.buddy[data-mood="grounded"] .b-mouth--smile,
+.buddy[data-mood="happy"] .b-mouth--smile,
+.buddy[data-mood="thanks"] .b-mouth--smile,
+.buddy[data-mood="laugh"] .b-mouth--smile,
+.buddy[data-mood="giggle"] .b-mouth--smile {
+  display: none;
+}
+
+.buddy[data-mood="greet"] .b-eyes--happy,
+.buddy[data-mood="grounded"] .b-eyes--happy,
+.buddy[data-mood="happy"] .b-eyes--happy,
+.buddy[data-mood="thanks"] .b-eyes--happy,
+.buddy[data-mood="laugh"] .b-eyes--happy,
+.buddy[data-mood="giggle"] .b-eyes--happy,
+.buddy[data-mood="greet"] .b-mouth--open,
+.buddy[data-mood="grounded"] .b-mouth--open,
+.buddy[data-mood="happy"] .b-mouth--open,
+.buddy[data-mood="thanks"] .b-mouth--open,
+.buddy[data-mood="laugh"] .b-mouth--open,
+.buddy[data-mood="giggle"] .b-mouth--open,
+.buddy[data-mood="greet"] .b-cheeks,
+.buddy[data-mood="grounded"] .b-cheeks,
+.buddy[data-mood="happy"] .b-cheeks,
+.buddy[data-mood="thanks"] .b-cheeks,
+.buddy[data-mood="laugh"] .b-cheeks,
+.buddy[data-mood="giggle"] .b-cheeks {
+  display: block;
+}
+
+/* Wave right arm in greet */
+.buddy[data-mood="greet"] .b-arm--r {
+  animation: armWave 0.75s ease-in-out infinite;
+}
+.buddy[data-mood="greet"] .b-arm--l {
+  animation: none;
+  transform: rotate(-15deg);
+}
+
+@keyframes armWave {
+  0%, 100% {
+    transform: rotate(110deg);
+  }
+  50% {
+    transform: rotate(145deg);
+  }
+}
+
+/* Grounded reply: arms up and hops twice */
+.buddy[data-mood="grounded"] .b-figure-inner {
+  animation: hopTwice 0.85s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.buddy[data-mood="grounded"] .b-arm--l {
+  animation: none;
+  transform: rotate(-130deg);
+}
+.buddy[data-mood="grounded"] .b-arm--r {
+  animation: none;
+  transform: rotate(130deg);
+}
+
+@keyframes hopTwice {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-9px);
+  }
+  45% {
+    transform: translateY(0);
+  }
+  65% {
+    transform: translateY(-6px);
+  }
+  85% {
+    transform: translateY(0);
+  }
+}
+
+/* Giggle on click: small jump and arm bounce */
+.buddy[data-mood="giggle"] .b-figure-inner {
+  animation: giggleJump 0.55s ease-in-out;
+}
+.buddy[data-mood="giggle"] .b-arm--l {
+  animation: none;
+  transform: rotate(-45deg);
+}
+.buddy[data-mood="giggle"] .b-arm--r {
+  animation: none;
+  transform: rotate(45deg);
+}
+
+@keyframes giggleJump {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateY(-8px) rotate(-4deg);
+  }
+  65% {
+    transform: translateY(-2px) rotate(4deg);
+  }
+}
+
+/* Think mood: head tilted, eyes looking up, flat mouth */
+.buddy[data-mood="think"] .b-eyes--normal,
+.buddy[data-mood="think"] .b-mouth--smile {
+  display: none;
+}
+.buddy[data-mood="think"] .b-eyes--think,
+.buddy[data-mood="think"] .b-mouth--flat {
+  display: block;
+}
+.buddy[data-mood="think"] .b-head {
+  animation: none;
+  transform: rotate(7deg);
+}
+.buddy[data-mood="think"] .b-bulb {
+  animation: bulbPulse 1.2s ease-in-out infinite;
+}
+
+/* Unsure mood: sad face, head droops */
+.buddy[data-mood="unsure"] .b-eyes--normal,
+.buddy[data-mood="unsure"] .b-mouth--smile {
+  display: none;
+}
+.buddy[data-mood="unsure"] .b-eyes--sad,
+.buddy[data-mood="unsure"] .b-brows--sad,
+.buddy[data-mood="unsure"] .b-mouth--sad {
+  display: block;
+}
+.buddy[data-mood="unsure"] .b-head {
+  animation: none;
+  transform: rotate(-5deg) translateY(2px);
+}
+
+/* Offline / Error / Network mood: sweat drop, shakes */
+.buddy[data-mood="offline"] .b-eyes--normal,
+.buddy[data-mood="error"] .b-eyes--normal,
+.buddy[data-mood="network"] .b-eyes--normal,
+.buddy[data-mood="rate"] .b-eyes--normal,
+.buddy[data-mood="offline"] .b-mouth--smile,
+.buddy[data-mood="error"] .b-mouth--smile,
+.buddy[data-mood="network"] .b-mouth--smile,
+.buddy[data-mood="rate"] .b-mouth--smile {
+  display: none;
+}
+.buddy[data-mood="offline"] .b-eyes--sad,
+.buddy[data-mood="error"] .b-eyes--sad,
+.buddy[data-mood="network"] .b-eyes--sad,
+.buddy[data-mood="rate"] .b-eyes--sad,
+.buddy[data-mood="offline"] .b-brows--sad,
+.buddy[data-mood="error"] .b-brows--sad,
+.buddy[data-mood="network"] .b-brows--sad,
+.buddy[data-mood="rate"] .b-brows--sad,
+.buddy[data-mood="offline"] .b-mouth--sad,
+.buddy[data-mood="error"] .b-mouth--sad,
+.buddy[data-mood="network"] .b-mouth--sad,
+.buddy[data-mood="rate"] .b-mouth--sad,
+.buddy[data-mood="offline"] .b-sweat,
+.buddy[data-mood="error"] .b-sweat,
+.buddy[data-mood="network"] .b-sweat {
+  display: block;
+}
+.buddy[data-mood="offline"] .b-head,
+.buddy[data-mood="error"] .b-head,
+.buddy[data-mood="network"] .b-head {
+  animation: headShake 0.6s ease-in-out infinite;
+}
+
+@keyframes headShake {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-6deg);
+  }
+  75% {
+    transform: rotate(6deg);
+  }
+}
+
+/* Paused state (offscreen) */
+.buddy--paused,
+.buddy--paused * {
+  animation-play-state: paused !important;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .buddy,
+  .buddy *,
+  .buddy .b-head,
+  .buddy .b-arm--l,
+  .buddy .b-arm--r,
+  .buddy .b-leg--l,
+  .buddy .b-leg--r,
+  .buddy .b-bulb,
+  .buddy .b-figure-inner {
+    animation: none !important;
+    transition: none !important;
+  }
+}
