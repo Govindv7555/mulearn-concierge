@@ -177,13 +177,20 @@ def _validate_history(data):
 # ---------------------------------------------------------------------------
 
 def _get_sync_timestamp():
-    """Get the last-modified time of discord_news.md."""
+    """Time of the last Discord sync, read from the '> Last synced:' header.
+
+    File mtime is not used: a fresh deploy resets it and would claim news was
+    synced just now. Returns None when the file has no such header.
+    """
     path = os.path.join("knowledge", "discord_news.md")
     try:
-        mtime = os.path.getmtime(path)
-        return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+        with open(path, encoding="utf-8") as f:
+            for line in f.read(2000).splitlines():
+                if line.lower().startswith("> last synced:"):
+                    return line.split(":", 1)[1].strip() or None
     except OSError:
-        return None
+        pass
+    return None
 
 
 # ---------------------------------------------------------------------------

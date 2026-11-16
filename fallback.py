@@ -82,8 +82,8 @@ FAQ_ENTRIES = [
     {
         "keywords": ["what is mulearn", "what's mulearn", "about mulearn", "tell me about mulearn", "explain mulearn"],
         "answer": (
-            "µLearn is a community-driven education platform backed by GTech "
-            "(Government of Kerala's technology initiative). It transforms learning "
+            "µLearn is a community-driven education platform launched by GTech "
+            "(the Group of Technology Companies, the IT industry body of Kerala). It transforms learning "
             "through peer-to-peer collaboration, gamification with Karma points, "
             "and real-world skill development. Instead of traditional lectures, "
             "µLearn connects students through Interest Groups, Learning Circles, "
@@ -187,8 +187,7 @@ FAQ_ENTRIES = [
             "For the latest µLearn news and announcements, check:\n\n"
             "• The µLearn website: https://mulearn.org\n"
             "• The µLearn Discord #announcements channel\n\n"
-            "This concierge pulls news from the central GTech µLearn announcements feed. "
-            "Run the Discord sync script to fetch the latest updates."
+            "This concierge also pulls news from the central GTech µLearn announcements feed."
         ),
     },
     {

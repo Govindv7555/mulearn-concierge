@@ -1,370 +1,238 @@
 /**
- * µLearn Concierge — Mu Mascot ("Mu")
- * Animated SVG companion sitting on the top-left ledge of the chat card.
+ * µLearn Concierge — "Mu", the little chat buddy.
+ *
+ * A tiny original mascot that sits on the top-left edge of the chat window.
+ * Its head sways, its legs swing, and it reacts to the conversation with short
+ * words ("Ohooo!", "There you go!", "Oops!") instead of whole sentences.
+ *
+ * It is purely decorative (aria-hidden) and talks to chat.js only through
+ * CustomEvents, so the chat keeps working even if this file fails to load:
+ *   concierge:send     { text }
+ *   concierge:reply    { reply, usedSources, offline }
+ *   concierge:error    { kind: "timeout" | "network" | "rate" | "server" }
+ *   concierge:newchat
  */
-
 (function () {
   "use strict";
 
-  // Pools of short phrases (all <= 16 chars)
-  var POOLS = {
+  var panel = document.querySelector(".chat-panel");
+  if (!panel || panel.querySelector(".buddy")) return;
+
+  // ---------------------------------------------------------------------------
+  // Words Mu can say (short on purpose)
+  // ---------------------------------------------------------------------------
+  var PHRASES = {
     greet: ["Hi there!", "Hello!", "Hey, hey!"],
     think: ["Hmm…", "Let me see…", "Thinking…"],
     grounded: ["There you go!", "Ta-da!", "Got it!", "Ohooo!"],
-    happy: ["Ohooo!", "Ooh!", "Nice!", "Hehe!"],
-    thanks: ["Aww!", "Anytime!", "Yay!"],
-    laugh: ["Hehe!", "Haha!"],
+    chat: ["Ohooo!", "Ooh!", "Nice!", "Hehe!"],
+    thanks: ["Aww!", "Anytime!", "Hehe!"],
+    laugh: ["Haha!", "Hehe!", "LOL!"],
     unsure: ["Hmm…", "Not sure…", "Ehh…"],
-    offline: ["Oops!", "Busy bees!", "Zzz…"],
+    busy: ["Oops!", "Busy bees!", "Zzz…"],
     error: ["Oops!", "Uh-oh!", "Whoops!"],
-    network: ["Oops!", "No signal!", "Uh-oh!"],
-    rate: ["Whoa, easy!", "Slow down!"],
-    newchat: ["Fresh start!"],
-    giggle: ["Hehe!", "Tickles!", "Eek!"],
-    idle_prompt: ["Psst… ask me!"],
+    offline: ["Oops!", "No signal!", "Uh-oh!"],
+    slow: ["Whoa, easy!", "Slow down!"],
+    fresh: ["Fresh start!", "New page!"],
+    tickle: ["Hehe!", "Hey!", "Boop!", "Eek!"],
+    hint: ["Psst… ask me!"]
   };
 
-  var lastWord = "";
-  var lastUserText = "";
-  var hasSent = false;
-  var hasGreeted = false;
-  var speechTimer = null;
-  var thinkSafetyTimer = null;
-  var idleTimer = null;
+  var GREETING = /^\s*(hi+|hello+|hey+|hlo|helo|yo|hola|namaste)\b/i;
+  var THANKS = /\b(thanks?|thank you|thanku|thx|ty)\b/i;
+  var LAUGH = /\b(lol|haha+|hehe+|funny|joke)\b/i;
+  var UNSURE = /(i'?m not certain|i am not certain|not sure|couldn'?t find|don'?t have (that|any))/i;
 
-  var buddyEl = null;
-  var textEl = null;
-  var hitEl = null;
+  // ---------------------------------------------------------------------------
+  // Markup (inline SVG so it needs no image files)
+  // ---------------------------------------------------------------------------
+  var SVG =
+    '<svg viewBox="0 0 96 112" width="100%" height="100%" focusable="false">' +
+    '<defs>' +
+    '<linearGradient id="bd-gold" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="#F3E3B8"/><stop offset="1" stop-color="#C9A96E"/></linearGradient>' +
+    '<linearGradient id="bd-navy" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#24375F"/><stop offset="1" stop-color="#101C33"/></linearGradient>' +
+    '</defs>' +
+    // legs (drawn first so the body overlaps the hips)
+    '<g class="b-leg b-leg--l"><rect x="38" y="78" width="7" height="15" rx="3.5" fill="url(#bd-navy)" stroke="#C9A96E" stroke-width="1"/>' +
+    '<ellipse cx="42" cy="94.5" rx="6.8" ry="3.6" fill="url(#bd-gold)"/></g>' +
+    '<g class="b-leg b-leg--r"><rect x="51" y="78" width="7" height="15" rx="3.5" fill="url(#bd-navy)" stroke="#C9A96E" stroke-width="1"/>' +
+    '<ellipse cx="55" cy="94.5" rx="6.8" ry="3.6" fill="url(#bd-gold)"/></g>' +
+    // body
+    '<rect x="33" y="54" width="30" height="30" rx="11" fill="url(#bd-navy)" stroke="#C9A96E" stroke-width="1.2"/>' +
+    '<text class="b-mu" x="48" y="77" text-anchor="middle">µ</text>' +
+    // arms
+    '<g class="b-arm b-arm--l"><line x1="35" y1="62" x2="25" y2="74" stroke="url(#bd-gold)" stroke-width="6" stroke-linecap="round"/>' +
+    '<circle cx="24" cy="75.5" r="4" fill="url(#bd-gold)"/></g>' +
+    '<g class="b-arm b-arm--r"><line x1="61" y1="62" x2="73" y2="72" stroke="url(#bd-gold)" stroke-width="6" stroke-linecap="round"/>' +
+    '<circle cx="74.5" cy="73.5" r="4" fill="url(#bd-gold)"/></g>' +
+    // head
+    '<g class="b-head">' +
+    '<line x1="48" y1="13" x2="48" y2="5" stroke="#C9A96E" stroke-width="2" stroke-linecap="round"/>' +
+    '<circle class="b-bulb" cx="48" cy="4" r="3.3" fill="#FFE29A"/>' +
+    '<ellipse cx="48" cy="34" rx="27" ry="22" fill="url(#bd-gold)" stroke="#8C6F3A" stroke-width="1"/>' +
+    '<rect x="28" y="22" width="40" height="24" rx="12" fill="#0B1426"/>' +
+    '<g class="b-eyes">' +
+    '<g class="b-eyes-open"><ellipse class="b-eye" cx="40" cy="32" rx="4" ry="4.6" fill="#FFF6DD"/>' +
+    '<ellipse class="b-eye" cx="56" cy="32" rx="4" ry="4.6" fill="#FFF6DD"/>' +
+    '<circle cx="41.2" cy="30.4" r="1.2" fill="#0B1426"/><circle cx="57.2" cy="30.4" r="1.2" fill="#0B1426"/></g>' +
+    '<g class="b-eyes-happy"><path d="M35.5 33.5 Q40 27.5 44.5 33.5" stroke="#FFF6DD" stroke-width="2.6" fill="none" stroke-linecap="round"/>' +
+    '<path d="M51.5 33.5 Q56 27.5 60.5 33.5" stroke="#FFF6DD" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>' +
+    '</g>' +
+    '<g class="b-brows"><path d="M35 28 L44 25.5" stroke="#FFF6DD" stroke-width="1.8" stroke-linecap="round"/>' +
+    '<path d="M61 28 L52 25.5" stroke="#FFF6DD" stroke-width="1.8" stroke-linecap="round"/></g>' +
+    '<path class="b-mouth b-mouth--smile" d="M43 40 Q48 45 53 40" stroke="#FFF6DD" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+    '<path class="b-mouth b-mouth--open" d="M42.5 39.5 Q48 48 53.5 39.5 Z" fill="#FFB36B"/>' +
+    '<path class="b-mouth b-mouth--flat" d="M44 41.5 L52 41.5" stroke="#FFF6DD" stroke-width="2" stroke-linecap="round"/>' +
+    '<path class="b-mouth b-mouth--sad" d="M43 43.5 Q48 38.5 53 43.5" stroke="#FFF6DD" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+    '<circle class="b-cheek" cx="31" cy="41" r="3.2" fill="#FF9A8B"/><circle class="b-cheek" cx="65" cy="41" r="3.2" fill="#FF9A8B"/>' +
+    '<path class="b-sweat" d="M72 18 q3.6 5.4 0 8.4 q-3.6 -3 0 -8.4z" fill="#8FC7FF"/>' +
+    '</g>' +
+    '</svg>';
 
-  function pickWord(pool) {
-    if (!pool || pool.length === 0) return "";
-    var choice = pool[Math.floor(Math.random() * pool.length)];
-    if (pool.length > 1 && choice === lastWord) {
-      var filtered = pool.filter(function (w) {
-        return w !== lastWord;
-      });
-      choice = filtered[Math.floor(Math.random() * filtered.length)];
+  var root = document.createElement("div");
+  root.className = "buddy";
+  root.setAttribute("aria-hidden", "true");
+  root.setAttribute("data-mood", "idle");
+  root.innerHTML =
+    '<div class="buddy__bubble"><span class="buddy__text"></span></div>' +
+    '<div class="buddy__figure">' + SVG + '<div class="buddy__hit"></div></div>';
+  panel.appendChild(root);
+
+  var bubble = root.querySelector(".buddy__bubble");
+  var textEl = root.querySelector(".buddy__text");
+  var hit = root.querySelector(".buddy__hit");
+
+  // ---------------------------------------------------------------------------
+  // Behaviour
+  // ---------------------------------------------------------------------------
+  var hideTimer = null;
+  var safetyTimer = null;
+  var lastPhrase = "";
+  var lastUser = "";
+  var sentAny = false;
+  var greeted = false;
+
+  function pick(list) {
+    var choice = list[0];
+    for (var i = 0; i < 6 && list.length > 1; i++) {
+      choice = list[Math.floor(Math.random() * list.length)];
+      if (choice !== lastPhrase) break;
     }
-    lastWord = choice;
+    lastPhrase = choice;
     return choice;
   }
 
-  function say(text, mood) {
-    if (!buddyEl || !textEl) return;
-    text = String(text || "").slice(0, 16);
-
-    if (speechTimer) {
-      clearTimeout(speechTimer);
-      speechTimer = null;
-    }
-    if (thinkSafetyTimer) {
-      clearTimeout(thinkSafetyTimer);
-      thinkSafetyTimer = null;
-    }
-
-    textEl.textContent = text;
-    buddyEl.dataset.mood = mood || "idle";
-    buddyEl.dataset.speaking = "true";
-
-    if (mood === "think") {
-      // Stays active until reply/error arrives, with a 40s safety cap
-      thinkSafetyTimer = setTimeout(function () {
-        hide();
-      }, 40000);
-    } else {
-      // Normal speech lasts about 2.5s, then returns to idle
-      speechTimer = setTimeout(function () {
-        hide();
-      }, 2500);
-    }
+  function restartReaction() {
+    root.classList.remove("is-react");
+    void root.offsetWidth; // restart the CSS animation
+    root.classList.add("is-react");
   }
 
   function hide() {
-    if (!buddyEl) return;
-    if (speechTimer) {
-      clearTimeout(speechTimer);
-      speechTimer = null;
-    }
-    if (thinkSafetyTimer) {
-      clearTimeout(thinkSafetyTimer);
-      thinkSafetyTimer = null;
-    }
-    buddyEl.dataset.speaking = "false";
-    buddyEl.dataset.mood = "idle";
+    clearTimeout(hideTimer);
+    clearTimeout(safetyTimer);
+    bubble.classList.remove("is-on");
+    root.classList.remove("is-waving", "is-react");
+    root.setAttribute("data-mood", "idle");
   }
 
-  // Expose global controller
-  window.MuBuddy = {
-    say: say,
-    hide: hide,
-  };
-
-  // Build Mascot DOM and SVG
-  function createBuddyDOM() {
-    var panel = document.querySelector(".chat-panel");
-    if (!panel) return false;
-    if (panel.querySelector(".buddy")) return true;
-
-    var container = document.createElement("div");
-    container.className = "buddy";
-    container.setAttribute("aria-hidden", "true");
-    container.dataset.mood = "idle";
-    container.dataset.speaking = "false";
-
-    // Speech bubble
-    var bubble = document.createElement("div");
-    bubble.className = "buddy__bubble";
-    var textSpan = document.createElement("span");
-    textSpan.className = "buddy__text";
-    bubble.appendChild(textSpan);
-    container.appendChild(bubble);
-
-    // Figure
-    var figure = document.createElement("div");
-    figure.className = "buddy__figure";
-
-    figure.innerHTML =
-      '<svg class="buddy__svg" viewBox="0 0 96 112" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-      '<g class="b-figure-inner">' +
-      '<!-- Legs (alternate swing) -->' +
-      '<g class="b-leg--l">' +
-      '<rect x="35" y="83" width="7" height="19" rx="3.5" fill="#dfc28d" stroke="#b08d55" stroke-width="1"/>' +
-      '<ellipse cx="37" cy="103" rx="6" ry="4" fill="#dfc28d" stroke="#b08d55" stroke-width="1"/>' +
-      '</g>' +
-      '<g class="b-leg--r">' +
-      '<rect x="54" y="83" width="7" height="19" rx="3.5" fill="#dfc28d" stroke="#b08d55" stroke-width="1"/>' +
-      '<ellipse cx="59" cy="103" rx="6" ry="4" fill="#dfc28d" stroke="#b08d55" stroke-width="1"/>' +
-      '</g>' +
-      '<!-- Left Arm -->' +
-      '<g class="b-arm--l">' +
-      '<rect x="18" y="66" width="16" height="6" rx="3" transform="rotate(35 33 69)" fill="#dfc28d" stroke="#b08d55" stroke-width="1"/>' +
-      '<circle cx="21" cy="80" r="3.5" fill="#dfc28d" stroke="#b08d55" stroke-width="1"/>' +
-      '</g>' +
-      '<!-- Right Arm -->' +
-      '<g class="b-arm--r">' +
-      '<rect x="62" y="66" width="16" height="6" rx="3" transform="rotate(-35 63 69)" fill="#dfc28d" stroke="#b08d55" stroke-width="1"/>' +
-      '<circle cx="75" cy="80" r="3.5" fill="#dfc28d" stroke="#b08d55" stroke-width="1"/>' +
-      '</g>' +
-      '<!-- Body & Chest Monogram -->' +
-      '<g class="b-body">' +
-      '<rect x="32" y="63" width="32" height="24" rx="12" fill="#0d172b" stroke="#c9a96e" stroke-width="2.2"/>' +
-      '<g class="b-mu">' +
-      '<text x="48" y="79.5" font-family="\'Cormorant Garamond\', \'Georgia\', serif" font-size="15" font-weight="600" fill="#dfc28d" text-anchor="middle" dominant-baseline="central">µ</text>' +
-      '</g>' +
-      '</g>' +
-      '<!-- Neck -->' +
-      '<rect x="44.5" y="60.5" width="7" height="4" rx="1.5" fill="#c9a96e"/>' +
-      '<!-- Head Group -->' +
-      '<g class="b-head">' +
-      '<rect x="46.5" y="15" width="3" height="6" rx="1.5" fill="#c9a96e"/>' +
-      '<g class="b-bulb">' +
-      '<circle cx="48" cy="11.5" r="4.5" fill="#dfc28d" stroke="#c9a96e" stroke-width="1.2"/>' +
-      '</g>' +
-      '<rect x="17" y="20" width="62" height="42" rx="19" fill="#dfc28d" stroke="#b08d55" stroke-width="1.5"/>' +
-      '<rect x="23.5" y="25" width="49" height="32" rx="13.5" fill="#0c1424"/>' +
-      '<!-- Cheeks -->' +
-      '<g class="b-cheeks">' +
-      '<circle cx="29.5" cy="46" r="3.5" fill="#e87a90" opacity="0.65"/>' +
-      '<circle cx="66.5" cy="46" r="3.5" fill="#e87a90" opacity="0.65"/>' +
-      '</g>' +
-      '<!-- Eyes: Normal blink -->' +
-      '<g class="b-eyes b-eyes--normal">' +
-      '<rect x="33" y="35" width="7" height="11" rx="3.5" fill="#ffffff"/>' +
-      '<rect x="56" y="35" width="7" height="11" rx="3.5" fill="#ffffff"/>' +
-      '<circle cx="37" cy="38" r="1.5" fill="#0c1424"/>' +
-      '<circle cx="60" cy="38" r="1.5" fill="#0c1424"/>' +
-      '</g>' +
-      '<!-- Eyes: Happy squint ^ ^ -->' +
-      '<g class="b-eyes b-eyes--happy">' +
-      '<path d="M 31 42 Q 36.5 34 42 42" stroke="#ffffff" stroke-width="3" stroke-linecap="round" fill="none"/>' +
-      '<path d="M 54 42 Q 59.5 34 65 42" stroke="#ffffff" stroke-width="3" stroke-linecap="round" fill="none"/>' +
-      '</g>' +
-      '<!-- Eyes: Think looking up -->' +
-      '<g class="b-eyes b-eyes--think">' +
-      '<rect x="34" y="32" width="7" height="10" rx="3.5" fill="#ffffff"/>' +
-      '<rect x="57" y="32" width="7" height="10" rx="3.5" fill="#ffffff"/>' +
-      '<circle cx="38" cy="34" r="1.5" fill="#0c1424"/>' +
-      '<circle cx="61" cy="34" r="1.5" fill="#0c1424"/>' +
-      '</g>' +
-      '<!-- Eyes: Sad / Worried -->' +
-      '<g class="b-eyes b-eyes--sad">' +
-      '<ellipse cx="37" cy="40" rx="4.5" ry="5.5" transform="rotate(18 37 40)" fill="#ffffff"/>' +
-      '<ellipse cx="59" cy="40" rx="4.5" ry="5.5" transform="rotate(-18 59 40)" fill="#ffffff"/>' +
-      '<circle cx="38" cy="38" r="1.5" fill="#0c1424"/>' +
-      '<circle cx="58" cy="38" r="1.5" fill="#0c1424"/>' +
-      '</g>' +
-      '<!-- Brows: Sad \ / -->' +
-      '<g class="b-brows b-brows--sad">' +
-      '<path d="M 32 32.5 Q 37 29.5 42 32.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none"/>' +
-      '<path d="M 54 32.5 Q 59 29.5 64 32.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none"/>' +
-      '</g>' +
-      '<!-- 4 Mouths: smile, open, flat, sad -->' +
-      '<path class="b-mouth b-mouth--smile" d="M 44 48.5 Q 48 52 52 48.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none"/>' +
-      '<path class="b-mouth b-mouth--open" d="M 43 47 Q 48 47 53 47 Q 53 54.5 48 54.5 Q 43 54.5 43 47 Z" fill="#e88938" stroke="#dfc28d" stroke-width="1.2"/>' +
-      '<path class="b-mouth b-mouth--flat" d="M 44.5 50 L 51.5 50" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none"/>' +
-      '<path class="b-mouth b-mouth--sad" d="M 43 52.5 Q 48 47.5 53 52.5" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" fill="none"/>' +
-      '<!-- Sweat Drop -->' +
-      '<path class="b-sweat" d="M 72 28.5 C 72 26.5 70 23.5 70 23.5 C 70 23.5 68 26.5 68 28.5 C 68 30 69 31.5 70 31.5 C 71 31.5 72 30 72 28.5 Z" fill="#9de2fb" opacity="0.88"/>' +
-      '</g>' +
-      '</g>' +
-      '</svg>' +
-      '<div class="buddy__hit" aria-label="Mu Mascot"></div>';
-
-    container.appendChild(figure);
-    panel.appendChild(container);
-
-    buddyEl = container;
-    textEl = textSpan;
-    hitEl = container.querySelector(".buddy__hit");
-
-    if (hitEl) {
-      hitEl.addEventListener("click", function (e) {
-        e.stopPropagation();
-        say(pickWord(POOLS.giggle), "giggle");
-      });
-    }
-
-    return true;
+  /**
+   * Say a short word. mood: idle | happy | think | sad | oops.
+   * ms = how long to keep the bubble (0 = until the next call, with a safety cap).
+   */
+  function say(text, mood, ms, wave) {
+    clearTimeout(hideTimer);
+    clearTimeout(safetyTimer);
+    textEl.textContent = text;
+    bubble.classList.add("is-on");
+    root.setAttribute("data-mood", mood);
+    root.classList.toggle("is-waving", !!wave);
+    restartReaction();
+    hideTimer = ms > 0 ? setTimeout(hide, ms) : null;
+    if (!ms) safetyTimer = setTimeout(hide, 40000);
   }
 
-  // Fit sizing based on available space above card
+  function classify(detail) {
+    var reply = String(detail.reply || "");
+    if (detail.offline) return ["busy", "oops", 2600];
+    if (UNSURE.test(reply)) return ["unsure", "sad", 2400];
+    if (THANKS.test(lastUser)) return ["thanks", "happy", 2400];
+    if (GREETING.test(lastUser) && lastUser.length < 24) return ["greet", "happy", 2400, true];
+    if (LAUGH.test(lastUser)) return ["laugh", "happy", 2200];
+    if (detail.usedSources) return ["grounded", "happy", 2400];
+    return ["chat", "happy", 2200];
+  }
+
+  document.addEventListener("concierge:send", function (e) {
+    sentAny = true;
+    lastUser = String((e.detail && e.detail.text) || "");
+    say(pick(PHRASES.think), "think", 0);
+  });
+
+  document.addEventListener("concierge:reply", function (e) {
+    var c = classify(e.detail || {});
+    say(pick(PHRASES[c[0]]), c[1], c[2], c[3]);
+  });
+
+  document.addEventListener("concierge:error", function (e) {
+    var kind = (e.detail && e.detail.kind) || "server";
+    var key = kind === "rate" ? "slow" : kind === "network" ? "offline" : "error";
+    say(pick(PHRASES[key]), "oops", 2800);
+  });
+
+  document.addEventListener("concierge:newchat", function () {
+    sentAny = false;
+    say(pick(PHRASES.fresh), "happy", 1800, true);
+  });
+
+  // Size Mu to the space above the card so it never pokes off the top of the screen.
+  // Mu sits with its hips on the card edge; that is 0.875 x its width above the card.
   function fit() {
-    var panel = document.querySelector(".chat-panel");
-    if (!panel || !buddyEl) return;
     var rect = panel.getBoundingClientRect();
-    // Skip if chat panel has no layout yet (3D intro playing)
-    if (rect.width === 0 || rect.height === 0 || rect.top === 0) {
-      return;
-    }
-    var spaceAvailable = rect.top;
-    if (spaceAvailable < 40) {
-      buddyEl.style.visibility = "hidden";
-      return;
-    }
-    buddyEl.style.visibility = "visible";
-    var isMobile = window.innerWidth <= 560;
-    var maxBase = isMobile ? 56 : 72;
-    var fitSize = Math.max(36, Math.min(maxBase, spaceAvailable));
-    buddyEl.style.setProperty("--bd-fit", fitSize + "px");
+    if (!rect.height) return;               // chat is hidden (3D intro still playing): keep defaults
+    var w = Math.floor((rect.top - 4) / 0.875);
+    root.style.setProperty("--bd-fit", Math.min(72, w) + "px");
+    root.classList.toggle("is-tiny", w < 40);
+  }
+  fit();
+  window.addEventListener("resize", fit);
+  window.addEventListener("load", fit);
+  if ("ResizeObserver" in window) new ResizeObserver(fit).observe(panel);  // also fires when the chat is revealed
+
+  // Tickle: clicking Mu makes it jump and giggle.
+  hit.addEventListener("click", function () {
+    root.classList.remove("is-jump");
+    void root.offsetWidth;
+    root.classList.add("is-jump");
+    say(pick(PHRASES.tickle), "happy", 1600);
+    setTimeout(function () { root.classList.remove("is-jump"); }, 700);
+  });
+
+  // Greet once when the chat first scrolls into view (the 3D intro hides it first),
+  // then give one friendly nudge if nobody has said anything for a while.
+  function onFirstVisible() {
+    if (greeted) return;
+    greeted = true;
+    setTimeout(function () { say(pick(PHRASES.greet), "happy", 2600, true); }, 700);
+    setTimeout(function () {
+      if (!sentAny && root.offsetParent !== null) say(pick(PHRASES.hint), "happy", 2600);
+    }, 22000);
   }
 
-  // Event Listeners for concierge events
-  function setupEvents() {
-    window.addEventListener("concierge:send", function (e) {
-      hasSent = true;
-      if (idleTimer) {
-        clearTimeout(idleTimer);
-        idleTimer = null;
-      }
-      var text = (e.detail && e.detail.text) || "";
-      lastUserText = text;
-      say(pickWord(POOLS.think), "think");
-    });
-
-    window.addEventListener("concierge:reply", function (e) {
-      var d = e.detail || {};
-      var reply = d.reply || "";
-      var usedSources = Boolean(d.usedSources);
-      var offline = Boolean(d.offline);
-
-      // Reply classification order: offline, unsure, thanks/greeting/laugh (from user's last message), grounded, normal
-      if (offline) {
-        say(pickWord(POOLS.offline), "offline");
-      } else if (/not certain|not sure|i don't know/i.test(reply)) {
-        say(pickWord(POOLS.unsure), "unsure");
-      } else if (/\b(thanks|thank you|thx|ty)\b/i.test(lastUserText)) {
-        say(pickWord(POOLS.thanks), "thanks");
-      } else if (/\b(lol|haha|hehe|rofl|lmao)\b/i.test(lastUserText)) {
-        say(pickWord(POOLS.laugh), "laugh");
-      } else if (/^(hi|hello|hey|greetings|morning|evening|night)\b/i.test(lastUserText.trim())) {
-        say(pickWord(POOLS.greet), "greet");
-      } else if (usedSources) {
-        say(pickWord(POOLS.grounded), "grounded");
-      } else {
-        say(pickWord(POOLS.happy), "happy");
-      }
-    });
-
-    window.addEventListener("concierge:error", function (e) {
-      var kind = (e.detail && e.detail.kind) || "";
-      if (kind === "rate") {
-        say(pickWord(POOLS.rate), "rate");
-      } else if (kind === "network") {
-        say(pickWord(POOLS.network), "network");
-      } else {
-        say(pickWord(POOLS.error), "error");
-      }
-    });
-
-    window.addEventListener("concierge:newchat", function () {
-      hasSent = false;
-      if (idleTimer) {
-        clearTimeout(idleTimer);
-        idleTimer = null;
-      }
-      say(pickWord(POOLS.newchat), "newchat");
-    });
-  }
-
-  // Monitor chat section visibility
-  function setupObservers() {
-    var chatSection = document.getElementById("chat");
-    var panel = document.querySelector(".chat-panel");
-    if (!chatSection || !panel) return;
-
-    if ("IntersectionObserver" in window) {
-      var observer = new IntersectionObserver(
-        function (entries) {
-          entries.forEach(function (entry) {
-            if (!buddyEl) return;
-            if (entry.isIntersecting) {
-              buddyEl.classList.remove("buddy--paused");
-              fit();
-              if (!hasGreeted) {
-                hasGreeted = true;
-                setTimeout(function () {
-                  say(pickWord(POOLS.greet), "greet");
-                }, 700);
-                idleTimer = setTimeout(function () {
-                  if (!hasSent) {
-                    say("Psst… ask me!", "idle_prompt");
-                  }
-                }, 22000);
-              }
-            } else {
-              buddyEl.classList.add("buddy--paused");
-            }
-          });
-        },
-        { threshold: 0.1 }
-      );
-      observer.observe(chatSection);
-    } else {
-      // Fallback
-      if (!hasGreeted) {
-        hasGreeted = true;
-        setTimeout(function () {
-          say(pickWord(POOLS.greet), "greet");
-        }, 700);
-      }
-    }
-
-    if (window.ResizeObserver) {
-      new ResizeObserver(fit).observe(panel);
-    }
-    window.addEventListener("resize", fit);
-  }
-
-  function init() {
-    createBuddyDOM();
-    setupEvents();
-    setupObservers();
-    fit();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        root.classList.toggle("is-paused", !en.isIntersecting);
+        if (en.isIntersecting) onFirstVisible();
+      });
+    }, { threshold: 0.6 });
+    io.observe(root);
   } else {
-    init();
+    onFirstVisible();
   }
+
+  // Tiny public hook for debugging / future use: window.MuBuddy.say("Hi!", "happy", 2000)
+  window.MuBuddy = { say: say, hide: hide };
 })();

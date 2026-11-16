@@ -98,7 +98,11 @@
   }
 
   // ----- Helper for event dispatching -----
-  function emit(name, detail){ window.dispatchEvent(new CustomEvent("concierge:"+name,{detail:detail||{}})); }
+  function emit(name, detail) {
+    try {
+      document.dispatchEvent(new CustomEvent("concierge:" + name, { detail: detail || {} }));
+    } catch (e) { /* decorative only */ }
+  }
 
   // ----- Send message -----
   async function handleSubmit(e) {

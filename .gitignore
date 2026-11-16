@@ -22,7 +22,7 @@ edge_temp_profile/
 
 # Local-only folders
 scratch/
-screenshots/
+/screenshots/
 static/*snapshot*.json
 static/metrics_*.json
 static/img/verification/
